@@ -43,7 +43,7 @@ def get_client_token(req):
 @app.route('/v1/chat/completions', methods=['POST'])
 @app.route('/api/chat/completions', methods=['POST'])
 def proxy_request():
-    # 需要使用 global 关键字引用在 __main__ 中初始化的全局配置
+    # 使用 global 关键字引用在 __main__ 中初始化的全局配置
     global TARGET_API_URL_BASE 
     
     print("-" * 60)
@@ -78,7 +78,7 @@ def proxy_request():
         data = None
         
     client_model = data.get('model') if data else 'N/A'
-    print(f"转发请求体中的模型 (无映射): {client_model}")
+    print(f"转发请求体中的模型: {client_model}")
         
     try:
         # 2. 转发请求，使用动态 Token
@@ -103,7 +103,7 @@ def proxy_request():
                         continue
                         
                     if line.startswith("data:"):
-                        print(f"  > DEBUG_LINE: {line[:50]}...") 
+                        # print(f"  > DEBUG_LINE: {line[:50]}...") # 打印太多，注释掉
                         yield (line + "\r\n\r\n").encode('utf-8')
                         
                     elif line == "[DONE]":
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--target-url',
         type=str,
-        default=os.environ.get('TARGET_URL'), # 移除默认值，只从 env 读取
+        default=os.environ.get('TARGET_URL'), 
         help="[必需] 目标 Open WebUI API 的基础 URL。例如：https://chat.example.com"
     )
     
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--port',
         type=int,
-        default=os.environ.get('LISTEN_PORT'), # 移除默认值，只从 env 读取
+        default=os.environ.get('LISTEN_PORT'), 
         help="[必需] 代理监听的本地端口号。例如: 8080"
     )
 
@@ -164,7 +164,8 @@ if __name__ == '__main__':
     
     print(f"🚀 Python 代理启动中...")
     print(f"目标 API 地址: {TARGET_API_URL_BASE}")
-    print(f"监听地址: http://127.0.0.1:{LISTEN_PORT}")
+    print(f"监听地址: http://0.0.0.0:{LISTEN_PORT} (已设置为监听所有接口)")
     print("----------------------------------------")
     
-    app.run(host='127.0.0.1', port=LISTEN_PORT, threaded=True)
+    # 修复了在 Windows Server 上只能监听 127.0.0.1 的问题
+    app.run(host='0.0.0.0', port=LISTEN_PORT, threaded=True)
