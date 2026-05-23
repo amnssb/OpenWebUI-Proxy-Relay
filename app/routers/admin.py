@@ -44,7 +44,7 @@ async def create_account(
         target_url=data.target_url.rstrip("/"),
         email=data.email,
         password=data.password,
-        model_map=data.model_map,
+        model_prefix=data.model_prefix,
     )
     db.add(account)
     await db.commit()
@@ -75,8 +75,8 @@ async def update_account(
         account.email = data.email
     if data.password is not None:
         account.password = data.password
-    if data.model_map is not None:
-        account.model_map = data.model_map
+    if data.model_prefix is not None:
+        account.model_prefix = data.model_prefix
 
     await db.commit()
     return RedirectResponse("/admin/accounts", status_code=303)

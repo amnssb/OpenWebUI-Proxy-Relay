@@ -49,15 +49,9 @@ async def _build_headers(account: Account, http_client: httpx.AsyncClient) -> di
     }
 
 
-def _apply_model_map(body: bytes, account: Account) -> bytes:
-    """Apply model name mapping from account config to request body."""
-    if not body:
-        return body
-    try:
-        model_map = json.loads(account.model_map) if account.model_map else {}
-    except (json.JSONDecodeError, TypeError):
-        model_map = {}
-    if not model_map:
+def _apply_model_prefix(body: bytes, account: Account) -> bytes:
+    """Add prefix to model name in request body."""
+    if not body or not account.model_prefix:
         return body
 
     try:
@@ -66,12 +60,19 @@ def _apply_model_map(body: bytes, account: Account) -> bytes:
         return body
 
     client_model = data.get("model")
-    if client_model and client_model in model_map:
-        data["model"] = model_map[client_model]
-        log.info(f"Model mapped: {client_model} -> {data['model']}")
+    if client_model and not client_model.startswith(account.model_prefix):
+        data["model"] = account.model_prefix + client_model
+        log.info(f"Model prefixed: {client_model} -> {data['model']}")
         return json.dumps(data).encode("utf-8")
 
     return body
+
+
+def _strip_model_prefix(model_id: str, prefix: str) -> str:
+    """Remove prefix from model ID for response."""
+    if prefix and model_id.startswith(prefix):
+        return model_id[len(prefix):]
+    return model_id
 
 
 @router.post("/v1/chat/completions")
@@ -83,8 +84,8 @@ async def proxy_chat_completions(
     http_client = get_http_client(request)
     body = await request.body()
 
-    # Apply model name mapping
-    body = _apply_model_map(body, account)
+    # Apply model prefix
+    body = _apply_model_prefix(body, account)
 
     target_url = f"{account.target_url}/api/chat/completions"
 
@@ -153,21 +154,13 @@ async def proxy_models(
             headers = await _build_headers(account, http_client)
             resp = await http_client.get(target_url, headers=headers)
 
-        # Apply reverse model mapping
-        try:
-            model_map = json.loads(account.model_map) if account.model_map else {}
-        except (json.JSONDecodeError, TypeError):
-            model_map = {}
-
-        if model_map:
-            reverse_map = {v: k for k, v in model_map.items()}
+        # Strip prefix from model IDs in response so client sees original names
+        if account.model_prefix:
             try:
                 body = json.loads(resp.content)
                 if "data" in body:
                     for m in body["data"]:
-                        if m.get("id") in reverse_map:
-                            m["id"] = reverse_map[m["id"]]
-                            m["owned_by"] = "proxy"
+                        m["id"] = _strip_model_prefix(m["id"], account.model_prefix)
                 return Response(content=json.dumps(body).encode(), status_code=resp.status_code, media_type="application/json")
             except (json.JSONDecodeError, KeyError):
                 pass

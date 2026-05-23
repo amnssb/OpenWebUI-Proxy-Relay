@@ -6,7 +6,7 @@ class AccountForm(BaseModel):
     target_url: str = Field(min_length=1, max_length=512)
     email: str = Field(min_length=1, max_length=256)
     password: str = Field(min_length=1)
-    model_map: str = Field(default="{}")
+    model_prefix: str = Field(default="", max_length=64)
 
 
 class AccountUpdateForm(BaseModel):
@@ -14,7 +14,7 @@ class AccountUpdateForm(BaseModel):
     target_url: str | None = None
     email: str | None = None
     password: str | None = None
-    model_map: str | None = None
+    model_prefix: str | None = None
     is_enabled: bool | None = None
 
 

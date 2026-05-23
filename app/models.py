@@ -28,7 +28,7 @@ class Account(Base):
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     health_status: Mapped[str] = mapped_column(String(16), default="unknown")
     last_health_check: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    model_map: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    model_prefix: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=func.now())
 
