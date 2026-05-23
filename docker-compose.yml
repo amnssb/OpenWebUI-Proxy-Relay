@@ -1,0 +1,23 @@
+services:
+  proxy:
+    build: .
+    container_name: openwebui-proxy
+    ports:
+      - "8000:8000"
+    volumes:
+      - proxy-data:/app/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./data/proxy.db
+      - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - DEFAULT_ADMIN_USERNAME=${DEFAULT_ADMIN_USERNAME:-admin}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:?Set DEFAULT_ADMIN_PASSWORD in .env}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/auth/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  proxy-data:
