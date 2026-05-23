@@ -1,85 +1,98 @@
 {% extends "base.html" %}
-{% block title %}Accounts - OpenWebUI Proxy{% endblock %}
+{% block title %}Accounts — Proxy Relay{% endblock %}
 {% block content %}
-<h2>Accounts</h2>
+<div class="page-header">
+    <h1>Accounts</h1>
+    <p>Manage your OpenWebUI target instances</p>
+</div>
 
 <div class="card">
-    <h3>Add Account</h3>
+    <div class="card-header">
+        <span class="card-title">Add Account</span>
+    </div>
     <form method="post" action="/admin/accounts">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-row">
             <div class="form-group">
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" placeholder="e.g. Production OWUI" required>
+                <label>Name</label>
+                <input type="text" name="name" placeholder="e.g. Production Server" required>
             </div>
             <div class="form-group">
-                <label for="target_url">Target URL</label>
-                <input type="url" id="target_url" name="target_url" placeholder="https://chat.example.com" required>
+                <label>Target URL</label>
+                <input type="url" name="target_url" placeholder="https://chat.example.com" required>
             </div>
             <div class="form-group">
-                <label for="session_token">Session Token (JWT)</label>
-                <input type="text" id="session_token" name="session_token" placeholder="eyJhbGciOi..." required>
+                <label>Session Token (JWT)</label>
+                <input type="text" name="session_token" placeholder="eyJhbGciOi..." required>
             </div>
         </div>
         <button type="submit" class="btn btn-primary">Add Account</button>
     </form>
 </div>
 
-{% if accounts %}
-<table>
-    <thead>
-        <tr>
-            <th>Name</th><th>Target URL</th><th>Token</th><th>API Keys</th><th>Status</th><th>Health</th><th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for a in accounts %}
-        <tr id="account-{{ a.id }}">
-            <td>{{ a.name }}</td>
-            <td class="text-muted text-sm">{{ a.target_url }}</td>
-            <td class="text-muted text-sm">{{ a.session_token[:20] }}...</td>
-            <td>{{ key_counts.get(a.id, 0) }}</td>
-            <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'ON' if a.is_enabled else 'OFF' }}</span></td>
-            <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
-            <td class="actions">
-                <form method="post" action="/admin/accounts/{{ a.id }}/toggle" style="display:inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if a.is_enabled else 'Enable' }}</button>
-                </form>
-                <form method="post" action="/admin/accounts/{{ a.id }}/health" style="display:inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-sm btn-ghost">Health Check</button>
-                </form>
-                <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ a.id }})">Edit</button>
-                <form method="post" action="/admin/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this account?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-            </td>
-        </tr>
-        <tr id="edit-{{ a.id }}" class="hidden">
-            <td colspan="7">
-                <form method="post" action="/admin/accounts/{{ a.id }}/edit" class="form-inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <input type="text" name="name" value="{{ a.name }}" placeholder="Name">
-                    <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="Target URL">
-                    <input type="text" name="session_token" value="{{ a.session_token }}" placeholder="Session Token">
-                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">Cancel</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p class="text-muted">No accounts configured yet.</p>
-{% endif %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">All Accounts</span>
+        <span class="badge badge-blue">{{ accounts|length }}</span>
+    </div>
+    {% if accounts %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Target URL</th><th>Token</th><th>API Keys</th><th>Status</th><th>Health</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for a in accounts %}
+            <tr id="account-{{ a.id }}">
+                <td><strong>{{ a.name }}</strong></td>
+                <td class="text-muted text-sm">{{ a.target_url }}</td>
+                <td class="text-muted text-sm">{{ a.session_token[:16] }}...</td>
+                <td><span class="badge badge-blue">{{ key_counts.get(a.id, 0) }}</span></td>
+                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'ON' if a.is_enabled else 'OFF' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
+                <td class="actions">
+                    <form method="post" action="/admin/accounts/{{ a.id }}/toggle" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if a.is_enabled else 'Enable' }}</button>
+                    </form>
+                    <form method="post" action="/admin/accounts/{{ a.id }}/health" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-ghost">Health</button>
+                    </form>
+                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ a.id }})">Edit</button>
+                    <form method="post" action="/admin/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this account?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            <tr id="edit-{{ a.id }}" class="hidden">
+                <td colspan="7" style="background:var(--bg-elevated)">
+                    <form method="post" action="/admin/accounts/{{ a.id }}/edit" class="form-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="text" name="name" value="{{ a.name }}" placeholder="Name">
+                        <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="Target URL">
+                        <input type="text" name="session_token" value="{{ a.session_token }}" placeholder="Session Token">
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">Cancel</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">&#9881;</div>
+        <p>No accounts configured yet.</p>
+    </div>
+    {% endif %}
+</div>
 
 <script>
 function toggleEdit(id) {
-    const row = document.getElementById('edit-' + id);
-    row.classList.toggle('hidden');
+    document.getElementById('edit-' + id).classList.toggle('hidden');
 }
 </script>
 {% endblock %}

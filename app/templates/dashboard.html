@@ -1,40 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - OpenWebUI Proxy{% endblock %}
+{% block title %}Dashboard — Proxy Relay{% endblock %}
 {% block content %}
-<h2>Dashboard</h2>
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Overview of your proxy relay</p>
+</div>
+
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-number">{{ account_count }}</div>
+        <div class="stat-icon">&#9881;</div>
+        <div class="stat-value">{{ account_count }}</div>
         <div class="stat-label">Accounts</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">{{ api_key_count }}</div>
+        <div class="stat-icon">&#128273;</div>
+        <div class="stat-value">{{ api_key_count }}</div>
         <div class="stat-label">API Keys</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">{{ user_count }}</div>
+        <div class="stat-icon">&#128100;</div>
+        <div class="stat-value">{{ user_count }}</div>
         <div class="stat-label">Users</div>
     </div>
 </div>
 
-<h3>Recent Accounts</h3>
-{% if recent_accounts %}
-<table>
-    <thead>
-        <tr><th>Name</th><th>Target URL</th><th>Status</th><th>Health</th></tr>
-    </thead>
-    <tbody>
-        {% for a in recent_accounts %}
-        <tr>
-            <td>{{ a.name }}</td>
-            <td class="text-muted">{{ a.target_url }}</td>
-            <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'Enabled' if a.is_enabled else 'Disabled' }}</span></td>
-            <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p class="text-muted">No accounts yet. <a href="/admin/accounts">Create one</a>.</p>
-{% endif %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Recent Accounts</span>
+    </div>
+    {% if recent_accounts %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Target URL</th><th>Status</th><th>Health</th></tr>
+        </thead>
+        <tbody>
+            {% for a in recent_accounts %}
+            <tr>
+                <td><strong>{{ a.name }}</strong></td>
+                <td class="text-muted text-sm">{{ a.target_url }}</td>
+                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'Enabled' if a.is_enabled else 'Disabled' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">&#9881;</div>
+        <p>No accounts yet. <a href="/admin/accounts">Create one</a> to get started.</p>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

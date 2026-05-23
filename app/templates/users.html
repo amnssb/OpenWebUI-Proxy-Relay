@@ -1,24 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Users - OpenWebUI Proxy{% endblock %}
+{% block title %}Users — Proxy Relay{% endblock %}
 {% block content %}
-<h2>Users</h2>
+<div class="page-header">
+    <h1>Users</h1>
+    <p>Manage admin and user accounts</p>
+</div>
 
 <div class="card">
-    <h3>Add User</h3>
+    <div class="card-header">
+        <span class="card-title">Add User</span>
+    </div>
     <form method="post" action="/admin/users">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-row">
             <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" minlength="3" maxlength="64" required>
+                <label>Username</label>
+                <input type="text" name="username" minlength="3" maxlength="64" placeholder="Username" required>
             </div>
             <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" minlength="6" required>
+                <label>Password</label>
+                <input type="password" name="password" minlength="6" placeholder="Min 6 characters" required>
             </div>
             <div class="form-group">
-                <label for="role">Role</label>
-                <select id="role" name="role">
+                <label>Role</label>
+                <select name="role">
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                 </select>
@@ -28,53 +33,60 @@
     </form>
 </div>
 
-{% if users %}
-<table>
-    <thead>
-        <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-        {% for u in users %}
-        <tr>
-            <td>{{ u.username }}</td>
-            <td><span class="badge {{ 'badge-blue' if u.role == 'admin' else 'badge-gray' }}">{{ u.role }}</span></td>
-            <td><span class="badge {{ 'badge-green' if u.is_active else 'badge-red' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
-            <td class="text-muted text-sm">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
-            <td class="actions">
-                <form method="post" action="/admin/users/{{ u.id }}/toggle" style="display:inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if u.is_active else 'Enable' }}</button>
-                </form>
-                <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ u.id }})">Edit</button>
-                <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this user?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                </form>
-            </td>
-        </tr>
-        <tr id="edit-{{ u.id }}" class="hidden">
-            <td colspan="5">
-                <form method="post" action="/admin/users/{{ u.id }}/edit" class="form-inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <input type="password" name="password" placeholder="New password (leave blank to keep)">
-                    <select name="role">
-                        <option value="user" {{ 'selected' if u.role == 'user' else '' }}>User</option>
-                        <option value="admin" {{ 'selected' if u.role == 'admin' else '' }}>Admin</option>
-                    </select>
-                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ u.id }})">Cancel</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">All Users</span>
+        <span class="badge badge-blue">{{ users|length }}</span>
+    </div>
+    {% if users %}
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td><strong>{{ u.username }}</strong></td>
+                <td><span class="badge {{ 'badge-blue' if u.role == 'admin' else 'badge-gray' }}">{{ u.role }}</span></td>
+                <td><span class="badge {{ 'badge-green' if u.is_active else 'badge-red' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
+                <td class="text-muted text-sm">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
+                <td class="actions">
+                    <form method="post" action="/admin/users/{{ u.id }}/toggle" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if u.is_active else 'Enable' }}</button>
+                    </form>
+                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ u.id }})">Edit</button>
+                    <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this user?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            <tr id="edit-{{ u.id }}" class="hidden">
+                <td colspan="5" style="background:var(--bg-elevated)">
+                    <form method="post" action="/admin/users/{{ u.id }}/edit" class="form-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="password" name="password" placeholder="New password (leave blank)">
+                        <select name="role">
+                            <option value="user" {{ 'selected' if u.role == 'user' else '' }}>User</option>
+                            <option value="admin" {{ 'selected' if u.role == 'admin' else '' }}>Admin</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ u.id }})">Cancel</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}
+</div>
 
 <script>
 function toggleEdit(id) {
-    const row = document.getElementById('edit-' + id);
-    row.classList.toggle('hidden');
+    document.getElementById('edit-' + id).classList.toggle('hidden');
 }
 </script>
 {% endblock %}
