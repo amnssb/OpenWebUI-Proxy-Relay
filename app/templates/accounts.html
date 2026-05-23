@@ -71,11 +71,19 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-ghost">检测</button>
                     </form>
+                    <button class="btn btn-sm btn-ghost" onclick="fetchModels({{ a.id }})">模型列表</button>
                     <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ a.id }})">编辑</button>
                     <form method="post" action="/admin/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('确定删除此账号？')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-danger">删除</button>
                     </form>
+                </td>
+            </tr>
+            <tr id="models-{{ a.id }}" class="hidden">
+                <td colspan="8" style="background:var(--bg-elevated)">
+                    <div id="models-content-{{ a.id }}" style="padding:12px">
+                        <span class="text-muted">加载中...</span>
+                    </div>
                 </td>
             </tr>
             <tr id="edit-{{ a.id }}" class="hidden">
@@ -107,6 +115,47 @@
 <script>
 function toggleEdit(id) {
     document.getElementById('edit-' + id).classList.toggle('hidden');
+}
+
+async function fetchModels(accountId) {
+    const row = document.getElementById('models-' + accountId);
+    const content = document.getElementById('models-content-' + accountId);
+
+    if (!row.classList.contains('hidden')) {
+        row.classList.add('hidden');
+        return;
+    }
+
+    row.classList.remove('hidden');
+    content.innerHTML = '<span class="text-muted">加载中...</span>';
+
+    try {
+        const resp = await fetch('/admin/accounts/' + accountId + '/models');
+        const data = await resp.json();
+
+        if (data.error) {
+            content.innerHTML = '<span class="text-muted">获取失败: ' + data.error + '</span>';
+            return;
+        }
+
+        if (data.models.length === 0) {
+            content.innerHTML = '<span class="text-muted">无可用模型</span>';
+            return;
+        }
+
+        let html = '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+        for (const m of data.models) {
+            const displayName = m.name;
+            const fullId = m.id;
+            const hasPrefix = data.prefix && fullId !== displayName;
+            html += '<span class="badge ' + (hasPrefix ? 'badge-orange' : 'badge-blue') + '" title="实际ID: ' + fullId + '" style="cursor:help">' + displayName + '</span>';
+        }
+        html += '</div>';
+        html += '<div class="form-hint" style="margin-top:8px">共 ' + data.models.length + ' 个模型，' + (data.prefix ? '前缀: ' + data.prefix : '无前缀') + '。悬停查看实际 ID</div>';
+        content.innerHTML = html;
+    } catch (e) {
+        content.innerHTML = '<span class="text-muted">请求失败: ' + e.message + '</span>';
+    }
 }
 </script>
 {% endblock %}

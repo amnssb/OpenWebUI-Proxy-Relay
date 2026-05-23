@@ -166,7 +166,45 @@ async def check_health(
     return RedirectResponse("/admin/accounts", status_code=303)
 
 
-# ---- Users ----
+@router.get("/accounts/{account_id}/models")
+async def get_models(
+    account_id: int,
+    request: Request,
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Account).where(Account.id == account_id))
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=404, detail="账号不存在")
+
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    models = []
+    error = None
+    try:
+        from app.owui_auth import get_session_token
+        token = await get_session_token(account, http_client)
+        resp = await http_client.get(
+            f"{account.target_url}/api/models",
+            headers={"Authorization": f"Bearer {token}", "User-Agent": BROWSER_UA},
+            timeout=10.0,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            for m in data.get("data", []):
+                mid = m.get("id", "")
+                # Strip prefix to show original name
+                display_name = mid
+                if account.model_prefix and mid.startswith(account.model_prefix):
+                    display_name = mid[len(account.model_prefix):]
+                models.append({"id": mid, "name": display_name})
+        else:
+            error = f"HTTP {resp.status_code}"
+    except Exception as e:
+        error = str(e)
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"models": models, "prefix": account.model_prefix, "error": error})
 
 @router.post("/users")
 async def create_user(
