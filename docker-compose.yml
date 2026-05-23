@@ -10,7 +10,7 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:///./data/proxy.db
       - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET in .env}
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
-      - DEFAULT_ADMIN_USERNAME=${DEFAULT_ADMIN_USERNAME:-admin}
+      - DEFAULT_ADMIN_EMAIL=${DEFAULT_ADMIN_EMAIL:-admin@example.com}
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:?Set DEFAULT_ADMIN_PASSWORD in .env}
     restart: unless-stopped
     healthcheck:

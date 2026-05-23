@@ -37,12 +37,13 @@ async def create_account(
     data = AccountForm(**dict(form))
 
     if not data.target_url.startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="target_url must start with http:// or https://")
+        raise HTTPException(status_code=400, detail="目标地址必须以 http:// 或 https:// 开头")
 
     account = Account(
         name=data.name,
         target_url=data.target_url.rstrip("/"),
         session_token=data.session_token,
+        model_map=data.model_map,
     )
     db.add(account)
     await db.commit()
@@ -62,7 +63,7 @@ async def update_account(
     result = await db.execute(select(Account).where(Account.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail="账号不存在")
 
     data = AccountUpdateForm(**{k: v for k, v in dict(form).items() if v is not None and v != ""})
     if data.name is not None:
@@ -71,6 +72,8 @@ async def update_account(
         account.target_url = data.target_url.rstrip("/")
     if data.session_token is not None:
         account.session_token = data.session_token
+    if data.model_map is not None:
+        account.model_map = data.model_map
 
     await db.commit()
     return RedirectResponse("/admin/accounts", status_code=303)
@@ -89,12 +92,12 @@ async def delete_account(
     result = await db.execute(select(ApiKey).where(ApiKey.account_id == account_id))
     keys = result.scalars().all()
     if keys:
-        raise HTTPException(status_code=400, detail="Delete all API keys for this account first")
+        raise HTTPException(status_code=400, detail="请先删除该账号下的所有 API 密钥")
 
     result = await db.execute(select(Account).where(Account.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail="账号不存在")
 
     await db.delete(account)
     await db.commit()
@@ -114,7 +117,7 @@ async def toggle_account(
     result = await db.execute(select(Account).where(Account.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail="账号不存在")
 
     account.is_enabled = not account.is_enabled
     await db.commit()
@@ -134,7 +137,7 @@ async def check_health(
     result = await db.execute(select(Account).where(Account.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail="账号不存在")
 
     http_client: httpx.AsyncClient = request.app.state.http_client
     status = "unhealthy"
@@ -170,12 +173,12 @@ async def create_user(
     validate_csrf(request, dict(form))
     data = UserForm(**dict(form))
 
-    result = await db.execute(select(User).where(User.username == data.username))
+    result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise HTTPException(status_code=400, detail="邮箱已存在")
 
     new_user = User(
-        username=data.username,
+        email=data.email,
         password_hash=hash_password(data.password),
         role=data.role,
     )
@@ -197,7 +200,7 @@ async def update_user(
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     data = UserUpdateForm(**{k: v for k, v in dict(form).items() if v is not None and v != ""})
     if data.password is not None:
@@ -222,7 +225,7 @@ async def toggle_user(
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     target.is_active = not target.is_active
     await db.commit()
@@ -240,12 +243,12 @@ async def delete_user(
     validate_csrf(request, dict(form))
 
     if user_id == admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+        raise HTTPException(status_code=400, detail="不能删除自己")
 
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     await db.delete(target)
     await db.commit()
@@ -266,7 +269,7 @@ async def create_api_key(
 
     result = await db.execute(select(Account).where(Account.id == data.account_id))
     if not result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Account not found")
+        raise HTTPException(status_code=400, detail="账号不存在")
 
     new_key = ApiKey(
         key=generate_api_key(),
@@ -295,7 +298,7 @@ async def toggle_api_key(
     result = await db.execute(select(ApiKey).where(ApiKey.id == key_id))
     api_key = result.scalar_one_or_none()
     if not api_key:
-        raise HTTPException(status_code=404, detail="API key not found")
+        raise HTTPException(status_code=404, detail="API 密钥不存在")
 
     api_key.is_active = not api_key.is_active
     await db.commit()
@@ -315,7 +318,7 @@ async def delete_api_key(
     result = await db.execute(select(ApiKey).where(ApiKey.id == key_id))
     api_key = result.scalar_one_or_none()
     if not api_key:
-        raise HTTPException(status_code=404, detail="API key not found")
+        raise HTTPException(status_code=404, detail="API 密钥不存在")
 
     await db.delete(api_key)
     await db.commit()

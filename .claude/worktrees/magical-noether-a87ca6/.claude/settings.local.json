@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd D:/amnssb/Documents/OpenWebUI-Proxy-Relay && grep -n \"detail=\" app/routers/api.py 2>&1)"
+    ]
+  }
+}

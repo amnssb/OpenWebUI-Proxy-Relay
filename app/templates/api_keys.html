@@ -1,60 +1,60 @@
 {% extends "base.html" %}
-{% block title %}API Keys — Proxy Relay{% endblock %}
+{% block title %}API 密钥 — Proxy Relay{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>API Keys</h1>
-    <p>Keys for clients to connect to the proxy</p>
+    <h1>API 密钥</h1>
+    <p>客户端连接代理所使用的密钥</p>
 </div>
 
 {% if new_api_key %}
 <div class="alert alert-success">
-    <strong>New key created — copy it now, it won't be shown again:</strong>
+    <strong>密钥已创建 — 请立即复制，离开后不再显示：</strong>
     <div class="mt-2">
         <code class="key-display">{{ new_api_key }}</code>
-        <button class="btn btn-sm btn-ghost" style="margin-left:8px" onclick="navigator.clipboard.writeText('{{ new_api_key }}')">Copy</button>
+        <button class="btn btn-sm btn-ghost" style="margin-left:8px" onclick="navigator.clipboard.writeText('{{ new_api_key }}')">复制</button>
     </div>
 </div>
 {% endif %}
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">Create API Key</span>
+        <span class="card-title">创建 API 密钥</span>
     </div>
     <form method="post" action="/admin/api-keys">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-row">
             <div class="form-group">
-                <label>Name (optional)</label>
-                <input type="text" name="name" placeholder="e.g. Cherry Studio Client">
+                <label>名称（可选）</label>
+                <input type="text" name="name" placeholder="例如：Cherry Studio">
             </div>
             <div class="form-group">
-                <label>Account</label>
+                <label>绑定账号</label>
                 <select name="account_id" required>
                     {% for a in accounts %}
                     <option value="{{ a.id }}">{{ a.name }}</option>
                     {% endfor %}
                 </select>
                 {% if not accounts %}
-                <div class="form-hint">No accounts available. <a href="/admin/accounts">Create one first</a>.</div>
+                <div class="form-hint">暂无可用账号，<a href="/admin/accounts">请先创建</a>。</div>
                 {% endif %}
             </div>
         </div>
         <button type="submit" class="btn btn-primary" {% if not accounts %}disabled{% endif %}>
-            {% if accounts %}Create Key{% else %}No accounts available{% endif %}
+            {% if accounts %}创建密钥{% else %}暂无可用账号{% endif %}
         </button>
     </form>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">All API Keys</span>
+        <span class="card-title">全部密钥</span>
         <span class="badge badge-blue">{{ api_keys|length }}</span>
     </div>
     {% if api_keys %}
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Key</th><th>Name</th><th>Account</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            <tr><th>密钥</th><th>名称</th><th>绑定账号</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
         </thead>
         <tbody>
             {% for k in api_keys %}
@@ -62,16 +62,16 @@
                 <td><code>{{ k.key[:16] }}...</code></td>
                 <td>{{ k.name or '-' }}</td>
                 <td><span class="badge badge-blue">{{ account_map.get(k.account_id, '?') }}</span></td>
-                <td><span class="badge {{ 'badge-green' if k.is_active else 'badge-red' }}">{{ 'Active' if k.is_active else 'Disabled' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if k.is_active else 'badge-red' }}">{{ '正常' if k.is_active else '已禁用' }}</span></td>
                 <td class="text-muted text-sm">{{ k.created_at.strftime('%Y-%m-%d %H:%M') if k.created_at else '-' }}</td>
                 <td class="actions">
                     <form method="post" action="/admin/api-keys/{{ k.id }}/toggle" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if k.is_active else 'Enable' }}</button>
+                        <button type="submit" class="btn btn-sm btn-ghost">{{ '禁用' if k.is_active else '启用' }}</button>
                     </form>
-                    <form method="post" action="/admin/api-keys/{{ k.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this API key?')">
+                    <form method="post" action="/admin/api-keys/{{ k.id }}/delete" style="display:inline" onsubmit="return confirm('确定删除此密钥？')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
                     </form>
                 </td>
             </tr>
@@ -82,7 +82,7 @@
     {% else %}
     <div class="empty-state">
         <div class="empty-icon">&#128273;</div>
-        <p>No API keys yet.</p>
+        <p>暂无 API 密钥。</p>
     </div>
     {% endif %}
 </div>

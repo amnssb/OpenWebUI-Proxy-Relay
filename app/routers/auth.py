@@ -36,24 +36,24 @@ async def login_submit(request: Request, db: AsyncSession = Depends(get_db)):
     ip = request.client.host if request.client else "unknown"
     check_rate_limit(ip)
 
-    username = form_dict.get("username", "")
+    email = form_dict.get("email", "")
     password = form_dict.get("password", "")
 
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.password_hash):
         record_failure(ip)
         return templates.TemplateResponse(
             request, "login.html",
-            {"error": "Invalid credentials", "csrf_token": get_csrf_token(request)},
+            {"error": "用户名或密码错误", "csrf_token": get_csrf_token(request)},
             status_code=401,
         )
 
     if not user.is_active:
         return templates.TemplateResponse(
             request, "login.html",
-            {"error": "Account disabled", "csrf_token": get_csrf_token(request)},
+            {"error": "账号已被禁用", "csrf_token": get_csrf_token(request)},
             status_code=403,
         )
 

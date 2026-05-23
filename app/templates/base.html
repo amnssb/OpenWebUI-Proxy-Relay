@@ -16,23 +16,23 @@
         </div>
         <div class="sidebar-nav">
             <a href="/admin/dashboard" class="nav-item {% if request.url.path == '/admin/dashboard' %}active{% endif %}">
-                <span class="nav-icon">&#9632;</span> Dashboard
+                <span class="nav-icon">&#9632;</span> 仪表盘
             </a>
             <a href="/admin/accounts" class="nav-item {% if '/accounts' in request.url.path %}active{% endif %}">
-                <span class="nav-icon">&#9881;</span> Accounts
+                <span class="nav-icon">&#9881;</span> 账号管理
             </a>
             <a href="/admin/api-keys" class="nav-item {% if '/api-keys' in request.url.path %}active{% endif %}">
-                <span class="nav-icon">&#128273;</span> API Keys
+                <span class="nav-icon">&#128273;</span> API 密钥
             </a>
             {% if user and user.role == 'admin' %}
             <a href="/admin/users" class="nav-item {% if '/users' in request.url.path %}active{% endif %}">
-                <span class="nav-icon">&#128100;</span> Users
+                <span class="nav-icon">&#128100;</span> 用户管理
             </a>
             {% endif %}
         </div>
         <div class="sidebar-footer">
             <a href="/auth/logout" class="nav-item logout">
-                <span class="nav-icon">&#9212;</span> Logout
+                <span class="nav-icon">&#9212;</span> 退出登录
             </a>
         </div>
     </nav>

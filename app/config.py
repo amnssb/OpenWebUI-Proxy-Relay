@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 72
     bcrypt_rounds: int = 12
-    default_admin_username: str = "admin"
+    default_admin_email: str = "admin@example.com"
     default_admin_password: str
     request_timeout: float = 120.0
 

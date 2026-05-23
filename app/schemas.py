@@ -5,17 +5,19 @@ class AccountForm(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     target_url: str = Field(min_length=1, max_length=512)
     session_token: str = Field(min_length=1)
+    model_map: str = Field(default="{}")
 
 
 class AccountUpdateForm(BaseModel):
     name: str | None = None
     target_url: str | None = None
     session_token: str | None = None
+    model_map: str | None = None
     is_enabled: bool | None = None
 
 
 class UserForm(BaseModel):
-    username: str = Field(min_length=3, max_length=64)
+    email: str = Field(min_length=5, max_length=128)
     password: str = Field(min_length=6)
     role: str = Field(default="user", pattern=r"^(admin|user)$")
 

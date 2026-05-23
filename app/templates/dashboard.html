@@ -1,45 +1,45 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Proxy Relay{% endblock %}
+{% block title %}仪表盘 — Proxy Relay{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>Dashboard</h1>
-    <p>Overview of your proxy relay</p>
+    <h1>仪表盘</h1>
+    <p>代理服务概览</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-icon">&#9881;</div>
         <div class="stat-value">{{ account_count }}</div>
-        <div class="stat-label">Accounts</div>
+        <div class="stat-label">账号</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128273;</div>
         <div class="stat-value">{{ api_key_count }}</div>
-        <div class="stat-label">API Keys</div>
+        <div class="stat-label">API 密钥</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">&#128100;</div>
         <div class="stat-value">{{ user_count }}</div>
-        <div class="stat-label">Users</div>
+        <div class="stat-label">用户</div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">Recent Accounts</span>
+        <span class="card-title">最近账号</span>
     </div>
     {% if recent_accounts %}
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Name</th><th>Target URL</th><th>Status</th><th>Health</th></tr>
+            <tr><th>名称</th><th>目标地址</th><th>状态</th><th>健康</th></tr>
         </thead>
         <tbody>
             {% for a in recent_accounts %}
             <tr>
                 <td><strong>{{ a.name }}</strong></td>
                 <td class="text-muted text-sm">{{ a.target_url }}</td>
-                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'Enabled' if a.is_enabled else 'Disabled' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ '已启用' if a.is_enabled else '已禁用' }}</span></td>
                 <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
             </tr>
             {% endfor %}
@@ -49,7 +49,7 @@
     {% else %}
     <div class="empty-state">
         <div class="empty-icon">&#9881;</div>
-        <p>No accounts yet. <a href="/admin/accounts">Create one</a> to get started.</p>
+        <p>暂无账号，<a href="/admin/accounts">创建一个</a>开始使用。</p>
     </div>
     {% endif %}
 </div>

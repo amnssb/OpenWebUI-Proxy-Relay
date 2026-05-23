@@ -53,7 +53,7 @@ def validate_csrf(request: Request, form_data: dict) -> None:
     session_token = request.session.get("csrf_token")
     form_token = form_data.get("csrf_token")
     if not session_token or not form_token or session_token != form_token:
-        raise HTTPException(status_code=403, detail="CSRF token mismatch")
+        raise HTTPException(status_code=403, detail="CSRF 验证失败")
 
 
 # ---- Login rate limiting ----
@@ -67,7 +67,7 @@ def check_rate_limit(ip: str, max_attempts: int = 5, window: float = 300.0) -> N
     attempts = [t for t in attempts if now - t < window]
     _login_attempts[ip] = attempts
     if len(attempts) >= max_attempts:
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
+        raise HTTPException(status_code=429, detail="登录尝试过于频繁，请稍后再试")
 
 
 def record_failure(ip: str) -> None:
@@ -99,7 +99,7 @@ async def require_admin(
     user: User = Depends(get_current_user),
 ) -> User:
     if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise HTTPException(status_code=403, detail="需要管理员权限")
     return user
 
 
@@ -109,24 +109,35 @@ async def get_account_from_api_key(
 ) -> Account:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        raise HTTPException(status_code=401, detail="缺少或无效的 Authorization 头")
 
     token = auth_header[7:].strip()
     if not token.startswith("sk-proxy-"):
-        raise HTTPException(status_code=401, detail="Invalid API key format")
+        raise HTTPException(status_code=401, detail="API 密钥格式无效")
 
     result = await db.execute(
         select(ApiKey).where(ApiKey.key == token, ApiKey.is_active == True)
     )
     api_key = result.scalar_one_or_none()
     if not api_key:
-        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+        raise HTTPException(status_code=401, detail="API 密钥无效或已禁用")
+
+    # Allow client to select server via X-Proxy-Account header (account name)
+    override_name = request.headers.get("X-Proxy-Account")
+    if override_name:
+        result = await db.execute(
+            select(Account).where(Account.name == override_name, Account.is_enabled == True)
+        )
+        account = result.scalar_one_or_none()
+        if not account:
+            raise HTTPException(status_code=404, detail=f"账号 '{override_name}' 不存在或已禁用")
+        return account
 
     result = await db.execute(
         select(Account).where(Account.id == api_key.account_id)
     )
     account = result.scalar_one_or_none()
     if not account or not account.is_enabled:
-        raise HTTPException(status_code=403, detail="Account not found or disabled")
+        raise HTTPException(status_code=403, detail="账号不存在或已禁用")
 
     return account

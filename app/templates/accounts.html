@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Accounts — Proxy Relay{% endblock %}
+{% block title %}账号管理 — Proxy Relay{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>Accounts</h1>
-    <p>Manage your OpenWebUI target instances</p>
+    <h1>账号管理</h1>
+    <p>管理 OpenWebUI 目标实例</p>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">Add Account</span>
+        <span class="card-title">添加账号</span>
     </div>
     <form method="post" action="/admin/accounts">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-row">
             <div class="form-group">
-                <label>Name</label>
-                <input type="text" name="name" placeholder="e.g. Production Server" required>
+                <label>名称</label>
+                <input type="text" name="name" placeholder="例如：生产服务器" required>
             </div>
             <div class="form-group">
-                <label>Target URL</label>
+                <label>目标地址</label>
                 <input type="url" name="target_url" placeholder="https://chat.example.com" required>
             </div>
             <div class="form-group">
@@ -26,20 +26,25 @@
                 <input type="text" name="session_token" placeholder="eyJhbGciOi..." required>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Add Account</button>
+        <div class="form-group">
+            <label>模型映射（JSON）</label>
+            <input type="text" name="model_map" placeholder='{"gpt-4o": "实际模型ID"}' value="{}">
+            <div class="form-hint">客户端模型名 → 目标服务器模型名，留空 {} 表示不映射</div>
+        </div>
+        <button type="submit" class="btn btn-primary">添加账号</button>
     </form>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">All Accounts</span>
+        <span class="card-title">全部账号</span>
         <span class="badge badge-blue">{{ accounts|length }}</span>
     </div>
     {% if accounts %}
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Name</th><th>Target URL</th><th>Token</th><th>API Keys</th><th>Status</th><th>Health</th><th>Actions</th></tr>
+            <tr><th>名称</th><th>目标地址</th><th>Token</th><th>模型映射</th><th>密钥数</th><th>状态</th><th>健康</th><th>操作</th></tr>
         </thead>
         <tbody>
             {% for a in accounts %}
@@ -47,34 +52,36 @@
                 <td><strong>{{ a.name }}</strong></td>
                 <td class="text-muted text-sm">{{ a.target_url }}</td>
                 <td class="text-muted text-sm">{{ a.session_token[:16] }}...</td>
+                <td class="text-sm">{% if a.model_map and a.model_map != '{}' %}<code>{{ a.model_map[:25] }}{% if a.model_map|length > 25 %}...{% endif %}</code>{% else %}<span class="text-muted">无</span>{% endif %}</td>
                 <td><span class="badge badge-blue">{{ key_counts.get(a.id, 0) }}</span></td>
-                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ 'ON' if a.is_enabled else 'OFF' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ '启用' if a.is_enabled else '禁用' }}</span></td>
                 <td><span class="badge {{ 'badge-green' if a.health_status == 'healthy' else ('badge-red' if a.health_status == 'unhealthy' else 'badge-gray') }}">{{ a.health_status }}</span></td>
                 <td class="actions">
                     <form method="post" action="/admin/accounts/{{ a.id }}/toggle" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if a.is_enabled else 'Enable' }}</button>
+                        <button type="submit" class="btn btn-sm btn-ghost">{{ '禁用' if a.is_enabled else '启用' }}</button>
                     </form>
                     <form method="post" action="/admin/accounts/{{ a.id }}/health" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-ghost">Health</button>
+                        <button type="submit" class="btn btn-sm btn-ghost">检测</button>
                     </form>
-                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ a.id }})">Edit</button>
-                    <form method="post" action="/admin/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this account?')">
+                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ a.id }})">编辑</button>
+                    <form method="post" action="/admin/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('确定删除此账号？')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
                     </form>
                 </td>
             </tr>
             <tr id="edit-{{ a.id }}" class="hidden">
-                <td colspan="7" style="background:var(--bg-elevated)">
+                <td colspan="8" style="background:var(--bg-elevated)">
                     <form method="post" action="/admin/accounts/{{ a.id }}/edit" class="form-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="text" name="name" value="{{ a.name }}" placeholder="Name">
-                        <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="Target URL">
+                        <input type="text" name="name" value="{{ a.name }}" placeholder="名称">
+                        <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="目标地址">
                         <input type="text" name="session_token" value="{{ a.session_token }}" placeholder="Session Token">
-                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">Cancel</button>
+                        <input type="text" name="model_map" value="{{ a.model_map }}" placeholder='{"gpt-4o": "实际ID"}'>
+                        <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">取消</button>
                     </form>
                 </td>
             </tr>
@@ -85,7 +92,7 @@
     {% else %}
     <div class="empty-state">
         <div class="empty-icon">&#9881;</div>
-        <p>No accounts configured yet.</p>
+        <p>暂未配置任何账号。</p>
     </div>
     {% endif %}
 </div>

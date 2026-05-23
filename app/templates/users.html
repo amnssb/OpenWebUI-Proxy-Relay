@@ -1,65 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Users — Proxy Relay{% endblock %}
+{% block title %}用户管理 — Proxy Relay{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>Users</h1>
-    <p>Manage admin and user accounts</p>
+    <h1>用户管理</h1>
+    <p>管理系统用户账号</p>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">Add User</span>
+        <span class="card-title">添加用户</span>
     </div>
     <form method="post" action="/admin/users">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="form-row">
             <div class="form-group">
-                <label>Username</label>
-                <input type="text" name="username" minlength="3" maxlength="64" placeholder="Username" required>
+                <label>邮箱</label>
+                <input type="email" name="email" placeholder="user@example.com" required>
             </div>
             <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" minlength="6" placeholder="Min 6 characters" required>
+                <label>密码</label>
+                <input type="password" name="password" minlength="6" placeholder="至少6位" required>
             </div>
             <div class="form-group">
-                <label>Role</label>
+                <label>角色</label>
                 <select name="role">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
                 </select>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Add User</button>
+        <button type="submit" class="btn btn-primary">添加用户</button>
     </form>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <span class="card-title">All Users</span>
+        <span class="card-title">全部用户</span>
         <span class="badge badge-blue">{{ users|length }}</span>
     </div>
     {% if users %}
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            <tr><th>邮箱</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
         </thead>
         <tbody>
             {% for u in users %}
             <tr>
-                <td><strong>{{ u.username }}</strong></td>
-                <td><span class="badge {{ 'badge-blue' if u.role == 'admin' else 'badge-gray' }}">{{ u.role }}</span></td>
-                <td><span class="badge {{ 'badge-green' if u.is_active else 'badge-red' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
+                <td><strong>{{ u.email }}</strong></td>
+                <td><span class="badge {{ 'badge-blue' if u.role == 'admin' else 'badge-gray' }}">{{ '管理员' if u.role == 'admin' else '用户' }}</span></td>
+                <td><span class="badge {{ 'badge-green' if u.is_active else 'badge-red' }}">{{ '正常' if u.is_active else '已禁用' }}</span></td>
                 <td class="text-muted text-sm">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
                 <td class="actions">
                     <form method="post" action="/admin/users/{{ u.id }}/toggle" style="display:inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-ghost">{{ 'Disable' if u.is_active else 'Enable' }}</button>
+                        <button type="submit" class="btn btn-sm btn-ghost">{{ '禁用' if u.is_active else '启用' }}</button>
                     </form>
-                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ u.id }})">Edit</button>
-                    <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline" onsubmit="return confirm('Delete this user?')">
+                    <button class="btn btn-sm btn-ghost" onclick="toggleEdit({{ u.id }})">编辑</button>
+                    <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline" onsubmit="return confirm('确定删除此用户？')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
                     </form>
                 </td>
             </tr>
@@ -67,13 +67,13 @@
                 <td colspan="5" style="background:var(--bg-elevated)">
                     <form method="post" action="/admin/users/{{ u.id }}/edit" class="form-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="password" name="password" placeholder="New password (leave blank)">
+                        <input type="password" name="password" placeholder="新密码（留空不变）">
                         <select name="role">
-                            <option value="user" {{ 'selected' if u.role == 'user' else '' }}>User</option>
-                            <option value="admin" {{ 'selected' if u.role == 'admin' else '' }}>Admin</option>
+                            <option value="user" {{ 'selected' if u.role == 'user' else '' }}>普通用户</option>
+                            <option value="admin" {{ 'selected' if u.role == 'admin' else '' }}>管理员</option>
                         </select>
-                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ u.id }})">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ u.id }})">取消</button>
                     </form>
                 </td>
             </tr>

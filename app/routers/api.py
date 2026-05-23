@@ -47,6 +47,31 @@ def _build_headers(account: Account) -> dict:
     }
 
 
+def _apply_model_map(body: bytes, account: Account) -> bytes:
+    """Apply model name mapping from account config to request body."""
+    if not body:
+        return body
+    try:
+        model_map = json.loads(account.model_map) if account.model_map else {}
+    except (json.JSONDecodeError, TypeError):
+        model_map = {}
+    if not model_map:
+        return body
+
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return body
+
+    client_model = data.get("model")
+    if client_model and client_model in model_map:
+        data["model"] = model_map[client_model]
+        log.info(f"Model mapped: {client_model} -> {data['model']}")
+        return json.dumps(data).encode("utf-8")
+
+    return body
+
+
 @router.post("/v1/chat/completions")
 @router.post("/api/chat/completions")
 async def proxy_chat_completions(
@@ -55,6 +80,10 @@ async def proxy_chat_completions(
 ):
     http_client = get_http_client(request)
     body = await request.body()
+
+    # Apply model name mapping
+    body = _apply_model_map(body, account)
+
     target_url = f"{account.target_url}/api/chat/completions"
 
     try:
@@ -66,10 +95,10 @@ async def proxy_chat_completions(
         )
     except httpx.ConnectError as e:
         log.error(f"Connect error to {target_url}: {e}")
-        raise HTTPException(status_code=502, detail="Cannot connect to target server")
+        raise HTTPException(status_code=502, detail="无法连接到目标服务器")
     except httpx.TimeoutException:
         log.error(f"Timeout connecting to {target_url}")
-        raise HTTPException(status_code=504, detail="Target server timeout")
+        raise HTTPException(status_code=504, detail="目标服务器响应超时")
 
     if resp.status_code >= 400:
         error_body = await resp.aread()
@@ -104,8 +133,28 @@ async def proxy_models(
             target_url,
             headers=_build_headers(account),
         )
+
+        # Apply reverse model mapping to the models list response
+        try:
+            model_map = json.loads(account.model_map) if account.model_map else {}
+        except (json.JSONDecodeError, TypeError):
+            model_map = {}
+
+        if model_map:
+            reverse_map = {v: k for k, v in model_map.items()}
+            try:
+                body = json.loads(resp.content)
+                if "data" in body:
+                    for m in body["data"]:
+                        if m.get("id") in reverse_map:
+                            m["id"] = reverse_map[m["id"]]
+                            m["owned_by"] = "proxy"
+                return Response(content=json.dumps(body).encode(), status_code=resp.status_code, media_type="application/json")
+            except (json.JSONDecodeError, KeyError):
+                pass
+
         return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="Cannot connect to target server")
+        raise HTTPException(status_code=502, detail="无法连接到目标服务器")
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Target server timeout")
+        raise HTTPException(status_code=504, detail="目标服务器响应超时")

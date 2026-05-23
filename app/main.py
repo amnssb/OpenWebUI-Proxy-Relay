@@ -31,13 +31,13 @@ async def seed_admin():
         if result.scalar_one_or_none():
             return
         admin = User(
-            username=settings.default_admin_username,
+            email=settings.default_admin_email,
             password_hash=hash_password(settings.default_admin_password),
             role="admin",
         )
         db.add(admin)
         await db.commit()
-        log.info("Default admin user '%s' created", settings.default_admin_username)
+        log.info("Default admin '%s' created", settings.default_admin_email)
 
 
 @asynccontextmanager
