@@ -4,14 +4,16 @@ from pydantic import BaseModel, Field
 class AccountForm(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     target_url: str = Field(min_length=1, max_length=512)
-    session_token: str = Field(min_length=1)
+    email: str = Field(min_length=1, max_length=256)
+    password: str = Field(min_length=1)
     model_map: str = Field(default="{}")
 
 
 class AccountUpdateForm(BaseModel):
     name: str | None = None
     target_url: str | None = None
-    session_token: str | None = None
+    email: str | None = None
+    password: str | None = None
     model_map: str | None = None
     is_enabled: bool | None = None
 

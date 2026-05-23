@@ -7,6 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.auth import get_account_from_api_key
 from app.models import Account
+from app.owui_auth import get_session_token, invalidate_token
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +38,12 @@ async def stream_sse(resp: httpx.Response):
             break
 
 
-def _build_headers(account: Account) -> dict:
+async def _build_headers(account: Account, http_client: httpx.AsyncClient) -> dict:
+    token = await get_session_token(account, http_client)
     return {
         **BROWSER_HEADERS,
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {account.session_token}",
+        "Authorization": f"Bearer {token}",
         "Origin": account.target_url,
         "Referer": f"{account.target_url}/",
     }
@@ -87,12 +89,25 @@ async def proxy_chat_completions(
     target_url = f"{account.target_url}/api/chat/completions"
 
     try:
+        headers = await _build_headers(account, http_client)
         resp = await http_client.post(
             target_url,
             content=body,
-            headers=_build_headers(account),
+            headers=headers,
             stream=True,
         )
+
+        # If 401, invalidate token and retry once
+        if resp.status_code == 401:
+            invalidate_token(account.id)
+            headers = await _build_headers(account, http_client)
+            resp = await http_client.post(
+                target_url,
+                content=body,
+                headers=headers,
+                stream=True,
+            )
+
     except httpx.ConnectError as e:
         log.error(f"Connect error to {target_url}: {e}")
         raise HTTPException(status_code=502, detail="无法连接到目标服务器")
@@ -129,12 +144,16 @@ async def proxy_models(
     target_url = f"{account.target_url}/api/models"
 
     try:
-        resp = await http_client.get(
-            target_url,
-            headers=_build_headers(account),
-        )
+        headers = await _build_headers(account, http_client)
+        resp = await http_client.get(target_url, headers=headers)
 
-        # Apply reverse model mapping to the models list response
+        # If 401, retry once
+        if resp.status_code == 401:
+            invalidate_token(account.id)
+            headers = await _build_headers(account, http_client)
+            resp = await http_client.get(target_url, headers=headers)
+
+        # Apply reverse model mapping
         try:
             model_map = json.loads(account.model_map) if account.model_map else {}
         except (json.JSONDecodeError, TypeError):

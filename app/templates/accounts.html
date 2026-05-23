@@ -21,9 +21,15 @@
                 <label>目标地址</label>
                 <input type="url" name="target_url" placeholder="https://chat.example.com" required>
             </div>
+        </div>
+        <div class="form-row">
             <div class="form-group">
-                <label>Session Token (JWT)</label>
-                <input type="text" name="session_token" placeholder="eyJhbGciOi..." required>
+                <label>OpenWebUI 邮箱</label>
+                <input type="email" name="email" placeholder="user@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>OpenWebUI 密码</label>
+                <input type="password" name="password" placeholder="密码" required>
             </div>
         </div>
         <div class="form-group">
@@ -44,14 +50,14 @@
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>名称</th><th>目标地址</th><th>Token</th><th>模型映射</th><th>密钥数</th><th>状态</th><th>健康</th><th>操作</th></tr>
+            <tr><th>名称</th><th>目标地址</th><th>邮箱</th><th>模型映射</th><th>密钥数</th><th>状态</th><th>健康</th><th>操作</th></tr>
         </thead>
         <tbody>
             {% for a in accounts %}
             <tr id="account-{{ a.id }}">
                 <td><strong>{{ a.name }}</strong></td>
                 <td class="text-muted text-sm">{{ a.target_url }}</td>
-                <td class="text-muted text-sm">{{ a.session_token[:16] }}...</td>
+                <td class="text-sm">{{ a.email }}</td>
                 <td class="text-sm">{% if a.model_map and a.model_map != '{}' %}<code>{{ a.model_map[:25] }}{% if a.model_map|length > 25 %}...{% endif %}</code>{% else %}<span class="text-muted">无</span>{% endif %}</td>
                 <td><span class="badge badge-blue">{{ key_counts.get(a.id, 0) }}</span></td>
                 <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ '启用' if a.is_enabled else '禁用' }}</span></td>
@@ -78,7 +84,8 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="text" name="name" value="{{ a.name }}" placeholder="名称">
                         <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="目标地址">
-                        <input type="text" name="session_token" value="{{ a.session_token }}" placeholder="Session Token">
+                        <input type="email" name="email" value="{{ a.email }}" placeholder="邮箱">
+                        <input type="password" name="password" placeholder="密码（留空不变）">
                         <input type="text" name="model_map" value="{{ a.model_map }}" placeholder='{"gpt-4o": "实际ID"}'>
                         <button type="submit" class="btn btn-primary btn-sm">保存</button>
                         <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">取消</button>

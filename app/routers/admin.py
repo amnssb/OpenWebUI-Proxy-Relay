@@ -42,7 +42,8 @@ async def create_account(
     account = Account(
         name=data.name,
         target_url=data.target_url.rstrip("/"),
-        session_token=data.session_token,
+        email=data.email,
+        password=data.password,
         model_map=data.model_map,
     )
     db.add(account)
@@ -70,8 +71,10 @@ async def update_account(
         account.name = data.name
     if data.target_url is not None:
         account.target_url = data.target_url.rstrip("/")
-    if data.session_token is not None:
-        account.session_token = data.session_token
+    if data.email is not None:
+        account.email = data.email
+    if data.password is not None:
+        account.password = data.password
     if data.model_map is not None:
         account.model_map = data.model_map
 
@@ -142,10 +145,12 @@ async def check_health(
     http_client: httpx.AsyncClient = request.app.state.http_client
     status = "unhealthy"
     try:
+        from app.owui_auth import get_session_token
+        token = await get_session_token(account, http_client)
         resp = await http_client.get(
             f"{account.target_url}/api/models",
             headers={
-                "Authorization": f"Bearer {account.session_token}",
+                "Authorization": f"Bearer {token}",
                 "User-Agent": BROWSER_UA,
             },
             timeout=10.0,
