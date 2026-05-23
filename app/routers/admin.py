@@ -176,35 +176,47 @@ async def get_models(
     result = await db.execute(select(Account).where(Account.id == account_id))
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="账号不存在")
+        return JSONResponse({"models": [], "prefix": "", "error": "账号不存在"})
 
     http_client: httpx.AsyncClient = request.app.state.http_client
     models = []
     error = None
+    prefix = account.model_prefix or ""
+
     try:
         from app.owui_auth import get_session_token
-        token = await get_session_token(account, http_client)
-        resp = await http_client.get(
-            f"{account.target_url}/api/models",
-            headers={"Authorization": f"Bearer {token}", "User-Agent": BROWSER_UA},
-            timeout=10.0,
-        )
+        try:
+            token = await get_session_token(account, http_client)
+        except Exception as e:
+            return JSONResponse({"models": [], "prefix": prefix, "error": f"登录失败: {e}"})
+
+        try:
+            resp = await http_client.get(
+                f"{account.target_url}/api/models",
+                headers={"Authorization": f"Bearer {token}", "User-Agent": BROWSER_UA},
+                timeout=10.0,
+            )
+        except Exception as e:
+            return JSONResponse({"models": [], "prefix": prefix, "error": f"请求失败: {e}"})
+
         if resp.status_code == 200:
-            data = resp.json()
-            for m in data.get("data", []):
-                mid = m.get("id", "")
-                # Strip prefix to show original name
-                display_name = mid
-                if account.model_prefix and mid.startswith(account.model_prefix):
-                    display_name = mid[len(account.model_prefix):]
-                models.append({"id": mid, "name": display_name})
+            try:
+                data = resp.json()
+                for m in data.get("data", []):
+                    mid = m.get("id", "")
+                    display_name = mid
+                    if prefix and mid.startswith(prefix):
+                        display_name = mid[len(prefix):]
+                    models.append({"id": mid, "name": display_name})
+            except Exception as e:
+                return JSONResponse({"models": [], "prefix": prefix, "error": f"解析失败: {e}"})
         else:
             error = f"HTTP {resp.status_code}"
+
     except Exception as e:
         error = str(e)
 
-    from fastapi.responses import JSONResponse
-    return JSONResponse({"models": models, "prefix": account.model_prefix, "error": error})
+    return JSONResponse({"models": models, "prefix": prefix, "error": error})
 
 @router.post("/users")
 async def create_user(
