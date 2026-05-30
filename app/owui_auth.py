@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import uuid
 
 import httpx
 import jwt
@@ -8,6 +9,24 @@ import jwt
 from app.crypto import decrypt
 
 log = logging.getLogger(__name__)
+
+
+def add_owui_chat_fields(payload: dict) -> None:
+    """Inject OpenWebUI web-UI fields that external API clients normally omit.
+
+    OpenWebUI's /api/chat/completions builds request metadata from the body and
+    then does ``metadata.get('chat_id', '').startswith('local:')``. When chat_id
+    is missing it is stored as None, so that call crashes with
+    ``'NoneType' object has no attribute 'startswith'`` (open-webui issue #24550).
+    Sending non-None ids avoids it; the ``local:`` prefix also makes the server
+    treat the chat as ephemeral and skip DB persistence.
+    """
+    if not payload.get("chat_id"):
+        payload["chat_id"] = "local:" + uuid.uuid4().hex
+    if not payload.get("session_id"):
+        payload["session_id"] = uuid.uuid4().hex
+    if not payload.get("id"):
+        payload["id"] = uuid.uuid4().hex
 
 
 class AuthError(Exception):

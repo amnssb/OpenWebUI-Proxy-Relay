@@ -13,7 +13,7 @@ from app.auth import hash_password, require_admin, validate_csrf
 from app.crypto import encrypt
 from app.database import get_db
 from app.models import Account, ApiKey, User
-from app.owui_auth import AuthError, authed_request
+from app.owui_auth import AuthError, add_owui_chat_fields, authed_request
 from app.schemas import AccountForm, AccountUpdateForm, ApiKeyForm, UserForm, UserUpdateForm
 
 log = logging.getLogger(__name__)
@@ -239,11 +239,9 @@ async def test_chat(
 
     # Use streaming — it's the path the web UI / real clients use; some targets
     # only handle the streaming branch correctly (the non-stream branch can crash).
-    payload = json.dumps({
-        "model": model,
-        "messages": [{"role": "user", "content": "hi"}],
-        "stream": True,
-    }).encode("utf-8")
+    body = {"model": model, "messages": [{"role": "user", "content": "hi"}], "stream": True}
+    add_owui_chat_fields(body)  # avoid OpenWebUI's chat_id NoneType crash
+    payload = json.dumps(body).encode("utf-8")
 
     try:
         resp = await authed_request(

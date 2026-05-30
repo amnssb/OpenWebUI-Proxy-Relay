@@ -7,7 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.auth import get_account_from_api_key
 from app.models import Account
-from app.owui_auth import AuthError, authed_request
+from app.owui_auth import AuthError, add_owui_chat_fields, authed_request
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +89,7 @@ async def proxy_chat_completions(
 
     if payload:
         _apply_model_prefix(payload, account)
+        add_owui_chat_fields(payload)
         body = json.dumps(payload).encode("utf-8")
 
     is_stream = bool(payload.get("stream", False))
