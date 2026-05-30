@@ -1,0 +1,38 @@
+# OpenWebUI-Proxy-Relay —— 1Panel 编排模板
+#
+# 用法（1Panel）：容器 → 编排 → 创建编排 → 来源选「编辑」，粘贴本文件；
+# 在同一编排目录创建 .env（参考 .env.example 填写密钥）后启动。
+#
+# 镜像直接从 GitHub 源码构建，无需手动 clone。
+# 如果服务器访问 GitHub 困难，或想用本地源码构建，见 README.md「本地构建」。
+
+services:
+  proxy:
+    container_name: openwebui-proxy-relay
+    build:
+      # #main 为分支，可改成某个 tag 或 commit 以固定版本
+      context: https://github.com/amnssb/OpenWebUI-Proxy-Relay.git#main
+      dockerfile: Dockerfile
+    image: openwebui-proxy-relay:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # 宿主机端口:容器端口（容器固定监听 8000）
+      - "${APP_PORT:-8080}:8000"
+    volumes:
+      # SQLite 数据库与数据目录，持久化到编排目录下的 ./data
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/auth/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    # —— 可选：用 1Panel「网站反代」按容器名访问时，取消下面注释 ——
+    # networks:
+    #   - 1panel-network
+
+# networks:
+#   1panel-network:
+#     external: true
