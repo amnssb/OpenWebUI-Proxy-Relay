@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, Request
@@ -42,7 +43,7 @@ async def login_submit(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not await asyncio.to_thread(verify_password, password, user.password_hash):
         record_failure(ip)
         return templates.TemplateResponse(
             request, "login.html",

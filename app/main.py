@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 async def seed_admin():
     from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
 
     async with async_session() as db:
         result = await db.execute(select(User).where(User.role == "admin"))
@@ -36,8 +37,12 @@ async def seed_admin():
             role="admin",
         )
         db.add(admin)
-        await db.commit()
-        log.info("Default admin '%s' created", settings.default_admin_email)
+        try:
+            await db.commit()
+            log.info("Default admin '%s' created", settings.default_admin_email)
+        except IntegrityError:
+            # Another worker created it concurrently — fine.
+            await db.rollback()
 
 
 @asynccontextmanager
@@ -50,6 +55,9 @@ async def lifespan(app: FastAPI):
         verify=False,
         timeout=httpx.Timeout(connect=10.0, read=settings.request_timeout, write=10.0, pool=10.0),
         follow_redirects=True,
+        # Keep connections to the target warm so requests don't pay a fresh TLS
+        # handshake each time (default keepalive_expiry is only 5s).
+        limits=httpx.Limits(max_connections=200, max_keepalive_connections=50, keepalive_expiry=120.0),
     )
     log.info("Proxy relay started")
     yield

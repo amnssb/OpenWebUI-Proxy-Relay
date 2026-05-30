@@ -14,4 +14,6 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# WORKERS controls uvicorn process count (default 2). Raise it on a multi-core
+# host for more concurrency; keep it low on a busy/small server.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS:-2}"]
