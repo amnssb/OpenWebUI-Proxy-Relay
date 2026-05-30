@@ -269,7 +269,8 @@ async def test_chat(
         await resp.aclose()
         return JSONResponse({"ok": False, "model": model, "status": resp.status_code, "error": err[:500]})
 
-    reply, stream_err = "", None
+    reply, reasoning, stream_err = "", "", None
+    raw_sample = []
     try:
         async for line in resp.aiter_lines():
             line = line.strip()
@@ -278,6 +279,8 @@ async def test_chat(
             chunk = line[5:].strip()
             if chunk == "[DONE]":
                 break
+            if len(raw_sample) < 4:
+                raw_sample.append(chunk[:200])
             try:
                 obj = json.loads(chunk)
             except json.JSONDecodeError:
@@ -286,9 +289,15 @@ async def test_chat(
                 stream_err = json.dumps(obj["error"], ensure_ascii=False)
                 break
             try:
-                delta = obj["choices"][0]["delta"].get("content")
-                if delta:
-                    reply += delta
+                choice = obj["choices"][0]
+                delta = choice.get("delta") or {}
+                if delta.get("content"):
+                    reply += delta["content"]
+                if delta.get("reasoning_content"):
+                    reasoning += delta["reasoning_content"]
+                msg = choice.get("message") or {}
+                if msg.get("content"):
+                    reply += msg["content"]
             except (KeyError, IndexError, TypeError):
                 pass
     finally:
@@ -296,7 +305,15 @@ async def test_chat(
 
     if stream_err:
         return JSONResponse({"ok": False, "model": model, "error": stream_err[:500]})
-    return JSONResponse({"ok": True, "model": model, "reply": (reply or "(空回复)")[:1000]})
+    if reply:
+        return JSONResponse({"ok": True, "model": model, "reply": reply[:1000]})
+    if reasoning:
+        return JSONResponse({"ok": True, "model": model, "reply": "（仅思考内容）" + reasoning[:1000]})
+    # Empty content: surface the raw chunks so we can see the target's actual format.
+    return JSONResponse({
+        "ok": True, "model": model,
+        "reply": "(空回复) 目标原始数据: " + (" | ".join(raw_sample) if raw_sample else "无 data: 行")[:600],
+    })
 
 
 @router.post("/users")
