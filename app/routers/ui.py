@@ -1,11 +1,15 @@
+import time
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_csrf_token, require_admin
+from app.crypto import decrypt
 from app.database import get_db
 from app.models import Account, ApiKey, User
+from app.owui_auth import jwt_expiry
 from app.templating import templates
 
 router = APIRouter(tags=["ui"])
@@ -13,6 +17,21 @@ router = APIRouter(tags=["ui"])
 
 def ctx(user: User, request: Request, **kwargs) -> dict:
     return {"user": user, "csrf_token": get_csrf_token(request), **kwargs}
+
+
+def _token_status(account: Account) -> str:
+    """Human-readable status of a token-mode account's stored JWT."""
+    token = decrypt(account.session_token)
+    if not token:
+        return "未填写"
+    exp = jwt_expiry(token)
+    if exp is None:
+        return "已填写"
+    remaining = exp - time.time()
+    if remaining <= 0:
+        return "已过期"
+    hours = remaining / 3600
+    return f"剩 {hours / 24:.1f} 天" if hours >= 24 else f"剩 {hours:.1f} 小时"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -57,9 +76,11 @@ async def accounts_page(
     )
     key_counts = dict(key_counts_result.all())
 
+    token_status = {a.id: _token_status(a) for a in accounts if a.auth_mode == "token"}
+
     return templates.TemplateResponse(
         request, "accounts.html",
-        ctx(user, request, accounts=accounts, key_counts=key_counts),
+        ctx(user, request, accounts=accounts, key_counts=key_counts, token_status=token_status),
     )
 
 

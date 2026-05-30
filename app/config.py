@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     default_admin_email: str = "admin@example.com"
     default_admin_password: str
     request_timeout: float = 120.0
+    # Optional dedicated key for encrypting stored account passwords.
+    # When empty, a key is derived from session_secret.
+    encryption_key: str = ""
 
 
 settings = Settings()

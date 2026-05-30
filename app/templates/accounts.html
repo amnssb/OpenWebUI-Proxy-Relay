@@ -21,16 +21,32 @@
                 <label>目标地址</label>
                 <input type="url" name="target_url" placeholder="https://chat.example.com" required>
             </div>
+            <div class="form-group">
+                <label>登录方式</label>
+                <select name="auth_mode" class="auth-mode-select" onchange="syncAuthMode(this)">
+                    <option value="password">邮箱密码（自动登录）</option>
+                    <option value="token">Token 直填（F12 抓取）</option>
+                </select>
+            </div>
         </div>
-        <div class="form-row">
+        <div class="form-row pw-field">
             <div class="form-group">
                 <label>OpenWebUI 邮箱</label>
-                <input type="email" name="email" placeholder="user@example.com" required>
+                <input type="email" name="email" class="pw-required" placeholder="user@example.com">
             </div>
             <div class="form-group">
                 <label>OpenWebUI 密码</label>
-                <input type="password" name="password" placeholder="密码" required>
+                <input type="password" name="password" class="pw-required" placeholder="密码">
             </div>
+        </div>
+        <div class="form-row tk-field" style="display:none">
+            <div class="form-group" style="flex:1 1 100%">
+                <label>Session Token (JWT)</label>
+                <textarea name="session_token" class="tk-required" rows="2" placeholder="token=eyJhbGciOiJIUzI1NiIs...  或  eyJhbGciOiJIUzI1NiIs..."></textarea>
+                <div class="form-hint">浏览器登录 OpenWebUI 后按 F12 → 应用(Application) → Cookie，复制名为 <code>token</code> 的值；也可在 网络(Network) 请求头里找 <code>Authorization: Bearer &lt;token&gt;</code>。<strong>整段粘贴即可</strong>（<code>token=</code>、<code>Bearer </code> 前缀会自动去除）。</div>
+            </div>
+        </div>
+        <div class="form-row">
             <div class="form-group">
                 <label>模型前缀</label>
                 <input type="text" name="model_prefix" placeholder="例如：2a-（留空不添加前缀）">
@@ -50,14 +66,22 @@
     <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>名称</th><th>目标地址</th><th>邮箱</th><th>模型前缀</th><th>密钥数</th><th>状态</th><th>健康</th><th>操作</th></tr>
+            <tr><th>名称</th><th>目标地址</th><th>登录</th><th>模型前缀</th><th>密钥数</th><th>状态</th><th>健康</th><th>操作</th></tr>
         </thead>
         <tbody>
             {% for a in accounts %}
             <tr id="account-{{ a.id }}">
                 <td><strong>{{ a.name }}</strong></td>
                 <td class="text-muted text-sm">{{ a.target_url }}</td>
-                <td class="text-sm">{{ a.email }}</td>
+                <td class="text-sm">
+                    {% if a.auth_mode == 'token' %}
+                    <span class="badge badge-orange" title="F12 抓取的 Token 直填">Token</span>
+                    <span class="text-muted {{ 'text-danger' if token_status.get(a.id) in ('已过期', '未填写') else '' }}">{{ token_status.get(a.id, '') }}</span>
+                    {% else %}
+                    <span class="badge badge-blue" title="邮箱密码自动登录">密码</span>
+                    <span class="text-muted">{{ a.email }}</span>
+                    {% endif %}
+                </td>
                 <td>{% if a.model_prefix %}<span class="badge badge-orange">{{ a.model_prefix }}</span>{% else %}<span class="text-muted">无</span>{% endif %}</td>
                 <td><span class="badge badge-blue">{{ key_counts.get(a.id, 0) }}</span></td>
                 <td><span class="badge {{ 'badge-green' if a.is_enabled else 'badge-red' }}">{{ '启用' if a.is_enabled else '禁用' }}</span></td>
@@ -92,8 +116,13 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="text" name="name" value="{{ a.name }}" placeholder="名称">
                         <input type="url" name="target_url" value="{{ a.target_url }}" placeholder="目标地址">
-                        <input type="email" name="email" value="{{ a.email }}" placeholder="邮箱">
-                        <input type="password" name="password" placeholder="密码（留空不变）">
+                        <select name="auth_mode" class="auth-mode-select" onchange="syncAuthMode(this)">
+                            <option value="password" {{ 'selected' if a.auth_mode != 'token' else '' }}>邮箱密码</option>
+                            <option value="token" {{ 'selected' if a.auth_mode == 'token' else '' }}>Token直填</option>
+                        </select>
+                        <input type="email" name="email" value="{{ a.email }}" placeholder="邮箱" class="pw-field">
+                        <input type="password" name="password" placeholder="密码（留空不变）" class="pw-field">
+                        <textarea name="session_token" rows="1" placeholder="Session Token（留空不变）" class="tk-field" style="display:none;min-width:260px"></textarea>
                         <input type="text" name="model_prefix" value="{{ a.model_prefix }}" placeholder="模型前缀">
                         <button type="submit" class="btn btn-primary btn-sm">保存</button>
                         <button type="button" class="btn btn-ghost btn-sm" onclick="toggleEdit({{ a.id }})">取消</button>
@@ -116,6 +145,18 @@
 function toggleEdit(id) {
     document.getElementById('edit-' + id).classList.toggle('hidden');
 }
+
+// Show password fields or token field depending on the selected login mode,
+// and only mark the visible required fields as required.
+function syncAuthMode(select) {
+    const form = select.closest('form');
+    const isToken = select.value === 'token';
+    form.querySelectorAll('.pw-field').forEach(el => el.style.display = isToken ? 'none' : '');
+    form.querySelectorAll('.tk-field').forEach(el => el.style.display = isToken ? '' : 'none');
+    form.querySelectorAll('.pw-required').forEach(el => el.required = !isToken);
+    form.querySelectorAll('.tk-required').forEach(el => el.required = isToken);
+}
+document.querySelectorAll('.auth-mode-select').forEach(syncAuthMode);
 
 async function fetchModels(accountId) {
     const row = document.getElementById('models-' + accountId);

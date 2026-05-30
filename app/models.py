@@ -23,8 +23,13 @@ class Account(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     target_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    # "password": auto-login with email/password; "token": use a manually
+    # captured (F12) session JWT directly.
+    auth_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="password")
     email: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     password: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Manually captured session JWT (encrypted at rest), used when auth_mode == "token".
+    session_token: Mapped[str] = mapped_column(Text, nullable=False, default="")
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     health_status: Mapped[str] = mapped_column(String(16), default="unknown")
     last_health_check: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

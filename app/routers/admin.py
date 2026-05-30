@@ -1,23 +1,23 @@
 import logging
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_csrf_token, hash_password, require_admin, validate_csrf
+from app.auth import hash_password, require_admin, validate_csrf
+from app.crypto import encrypt
 from app.database import get_db
 from app.models import Account, ApiKey, User
+from app.owui_auth import authed_request
 from app.schemas import AccountForm, AccountUpdateForm, ApiKeyForm, UserForm, UserUpdateForm
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
 def generate_api_key() -> str:
@@ -42,8 +42,10 @@ async def create_account(
     account = Account(
         name=data.name,
         target_url=data.target_url.rstrip("/"),
+        auth_mode=data.auth_mode,
         email=data.email,
-        password=data.password,
+        password=encrypt(data.password),
+        session_token=encrypt(data.session_token),
         model_prefix=data.model_prefix,
     )
     db.add(account)
@@ -71,10 +73,14 @@ async def update_account(
         account.name = data.name
     if data.target_url is not None:
         account.target_url = data.target_url.rstrip("/")
+    if data.auth_mode is not None:
+        account.auth_mode = data.auth_mode
     if data.email is not None:
         account.email = data.email
     if data.password is not None:
-        account.password = data.password
+        account.password = encrypt(data.password)
+    if data.session_token is not None:
+        account.session_token = encrypt(data.session_token)
     if data.model_prefix is not None:
         account.model_prefix = data.model_prefix
 
@@ -145,15 +151,8 @@ async def check_health(
     http_client: httpx.AsyncClient = request.app.state.http_client
     status = "unhealthy"
     try:
-        from app.owui_auth import get_session_token
-        token = await get_session_token(account, http_client)
-        resp = await http_client.get(
-            f"{account.target_url}/api/models",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "User-Agent": BROWSER_UA,
-            },
-            timeout=10.0,
+        resp = await authed_request(
+            account, http_client, "GET", f"{account.target_url}/api/models", timeout=10.0
         )
         if resp.status_code == 200:
             status = "healthy"
@@ -161,7 +160,7 @@ async def check_health(
         pass
 
     account.health_status = status
-    account.last_health_check = datetime.utcnow()
+    account.last_health_check = datetime.now(timezone.utc)
     await db.commit()
     return RedirectResponse("/admin/accounts", status_code=303)
 
@@ -179,44 +178,30 @@ async def get_models(
         return JSONResponse({"models": [], "prefix": "", "error": "账号不存在"})
 
     http_client: httpx.AsyncClient = request.app.state.http_client
-    models = []
-    error = None
     prefix = account.model_prefix or ""
 
     try:
-        from app.owui_auth import get_session_token
-        try:
-            token = await get_session_token(account, http_client)
-        except Exception as e:
-            return JSONResponse({"models": [], "prefix": prefix, "error": f"登录失败: {e}"})
-
-        try:
-            resp = await http_client.get(
-                f"{account.target_url}/api/models",
-                headers={"Authorization": f"Bearer {token}", "User-Agent": BROWSER_UA},
-                timeout=10.0,
-            )
-        except Exception as e:
-            return JSONResponse({"models": [], "prefix": prefix, "error": f"请求失败: {e}"})
-
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                for m in data.get("data", []):
-                    mid = m.get("id", "")
-                    display_name = mid
-                    if prefix and mid.startswith(prefix):
-                        display_name = mid[len(prefix):]
-                    models.append({"id": mid, "name": display_name})
-            except Exception as e:
-                return JSONResponse({"models": [], "prefix": prefix, "error": f"解析失败: {e}"})
-        else:
-            error = f"HTTP {resp.status_code}"
-
+        resp = await authed_request(
+            account, http_client, "GET", f"{account.target_url}/api/models", timeout=10.0
+        )
     except Exception as e:
-        error = str(e)
+        return JSONResponse({"models": [], "prefix": prefix, "error": f"请求失败: {e}"})
 
-    return JSONResponse({"models": models, "prefix": prefix, "error": error})
+    if resp.status_code != 200:
+        return JSONResponse({"models": [], "prefix": prefix, "error": f"HTTP {resp.status_code}"})
+
+    try:
+        data = resp.json()
+    except Exception as e:
+        return JSONResponse({"models": [], "prefix": prefix, "error": f"解析失败: {e}"})
+
+    models = []
+    for m in data.get("data", []):
+        mid = m.get("id", "")
+        display_name = mid[len(prefix):] if prefix and mid.startswith(prefix) else mid
+        models.append({"id": mid, "name": display_name})
+
+    return JSONResponse({"models": models, "prefix": prefix, "error": None})
 
 @router.post("/users")
 async def create_user(

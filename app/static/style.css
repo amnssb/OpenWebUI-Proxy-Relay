@@ -562,6 +562,7 @@ input::placeholder {
 
 /* ---- Utility ---- */
 .text-muted { color: var(--text-dim); }
+.text-danger { color: var(--red); }
 .text-sm { font-size: 0.85rem; }
 .hidden { display: none; }
 .mt-2 { margin-top: 16px; }
