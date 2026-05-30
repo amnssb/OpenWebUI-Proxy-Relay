@@ -269,18 +269,19 @@ async def test_chat(
         await resp.aclose()
         return JSONResponse({"ok": False, "model": model, "status": resp.status_code, "error": err[:500]})
 
+    ctype = resp.headers.get("content-type", "")
     reply, reasoning, stream_err = "", "", None
-    raw_sample = []
+    raw_lines = []
     try:
         async for line in resp.aiter_lines():
-            line = line.strip()
-            if not line.startswith("data:"):
+            if line and len(raw_lines) < 12:
+                raw_lines.append(line[:300])
+            s = line.strip()
+            if not s.startswith("data:"):
                 continue
-            chunk = line[5:].strip()
+            chunk = s[5:].strip()
             if chunk == "[DONE]":
                 break
-            if len(raw_sample) < 4:
-                raw_sample.append(chunk[:200])
             try:
                 obj = json.loads(chunk)
             except json.JSONDecodeError:
@@ -309,11 +310,20 @@ async def test_chat(
         return JSONResponse({"ok": True, "model": model, "reply": reply[:1000]})
     if reasoning:
         return JSONResponse({"ok": True, "model": model, "reply": "（仅思考内容）" + reasoning[:1000]})
-    # Empty content: surface the raw chunks so we can see the target's actual format.
-    return JSONResponse({
-        "ok": True, "model": model,
-        "reply": "(空回复) 目标原始数据: " + (" | ".join(raw_sample) if raw_sample else "无 data: 行")[:600],
-    })
+
+    # No streamed content — maybe a non-stream JSON body. Try to parse it whole.
+    raw = "\n".join(raw_lines)
+    try:
+        whole = json.loads(raw)
+        content = whole["choices"][0].get("message", {}).get("content")
+        if content:
+            return JSONResponse({"ok": True, "model": model, "reply": content[:1000]})
+    except Exception:
+        pass
+
+    # Still nothing: surface content-type + raw body so we can see what the target sent.
+    diag = f"content-type={ctype or '无'} | 响应体={raw[:450] if raw else '（空，0 字节）'}"
+    return JSONResponse({"ok": False, "model": model, "error": "空回复 ▶ " + diag})
 
 
 @router.post("/users")
