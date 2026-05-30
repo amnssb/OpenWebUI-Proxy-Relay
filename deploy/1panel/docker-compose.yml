@@ -1,36 +1,29 @@
-# OpenWebUI-Proxy-Relay —— 1Panel 编排（使用预构建镜像，面板内不构建）
+# OpenWebUI-Proxy-Relay —— 1Panel 编排（直接从 GitHub 拉取构建）
 #
-# 报错 "open Dockerfile: no such file or directory" 是因为在面板里构建时，
-# 编排目录里没有源码/Dockerfile。本方案改为「先在终端构建镜像，编排只引用镜像」，
-# 面板不再执行构建，错误消失。
+# 关键：build 用「短格式」直接写 Git 地址，docker 会克隆仓库并用其中的 Dockerfile。
+# 不要再写 dockerfile: 那一行——否则它会去本地找 Dockerfile 而报错。
 #
-# 一次性构建镜像（服务器终端）：
-#   git clone https://github.com/amnssb/OpenWebUI-Proxy-Relay.git
-#   cd OpenWebUI-Proxy-Relay
-#   docker build -t openwebui-proxy-relay:latest .
-# 然后把本文件粘贴到 1Panel → 容器 → 编排，改好密钥后启动。
-#
-# ⚠️ git clone 拿到的是 GitHub main 当前代码。请先把本地修复 push 到 main，
-#    否则构建出来的镜像仍是旧版本（聊天 500、无 Token 模式）。
+# 用法：1Panel → 容器 → 编排 → 创建编排 → 来源「编辑」，粘贴本文件，改密钥后启动。
+# 需要服务器能访问 GitHub。构建的是 main 分支当前代码。
 
 services:
   proxy:
     container_name: openwebui-proxy-relay
-    image: openwebui-proxy-relay:latest   # 终端里 docker build 出来的镜像
+    build: https://github.com/amnssb/OpenWebUI-Proxy-Relay.git#main
+    image: openwebui-proxy-relay:latest
     restart: unless-stopped
     ports:
-      - "8080:8000"          # 左边 8080 是宿主机端口，按需修改；右边 8000 固定
+      - "8080:8000"          # 左边 8080 是宿主机端口，按需修改
     environment:
-      # ===== 必填：务必改成你自己的值（openssl rand -hex 32 生成随机串）=====
+      # ===== 必填：改成你自己的值（openssl rand -hex 32 生成随机串）=====
       - SESSION_SECRET=change-me-please-a-random-32-char-string
       - JWT_SECRET=change-me-please-another-random-string
       - DEFAULT_ADMIN_EMAIL=admin@example.com
       - DEFAULT_ADMIN_PASSWORD=change-me-admin-password
       # ===== 可选 =====
       - DATABASE_URL=sqlite+aiosqlite:///./data/proxy.db
-      # 反代账号密码加密密钥；留空则从 SESSION_SECRET 派生。
-      # ⚠️ 添加账号后请勿再改 SESSION_SECRET（或本项），否则已存密码无法解密。
-      # - ENCRYPTION_KEY=change-me-optional-encryption-key
+      # ⚠️ 添加账号后请勿再改 SESSION_SECRET，否则已存密码无法解密
+      # - ENCRYPTION_KEY=
       # - REQUEST_TIMEOUT=120
     volumes:
       - ./data:/app/data
@@ -41,7 +34,7 @@ services:
       retries: 3
       start_period: 20s
 
-    # —— 可选：用 1Panel「网站反代」按容器名访问时，取消下面注释 ——
+    # 可选：用 1Panel 网站反代按容器名访问时取消注释
     # networks:
     #   - 1panel-network
 
