@@ -249,7 +249,16 @@ async def test_chat(
         resp = await authed_request(
             account, http_client, "POST", f"{account.target_url}/api/chat/completions",
             content=payload,
-            extra_headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+            extra_headers={
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Sec-Fetch-Mode": "cors",
+                # Some targets read Origin/Referer (e.g. `origin.startswith(...)`)
+                # and crash with NoneType when they are absent.
+                "Origin": account.target_url,
+                "Referer": f"{account.target_url}/",
+            },
             stream=True, timeout=30.0,
         )
     except AuthError as e:
