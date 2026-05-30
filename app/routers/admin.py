@@ -237,16 +237,20 @@ async def test_chat(
     if not model:
         return JSONResponse({"ok": False, "error": "没有可用模型可测试"})
 
+    # Use streaming — it's the path the web UI / real clients use; some targets
+    # only handle the streaming branch correctly (the non-stream branch can crash).
     payload = json.dumps({
         "model": model,
         "messages": [{"role": "user", "content": "hi"}],
-        "stream": False,
+        "stream": True,
     }).encode("utf-8")
 
     try:
         resp = await authed_request(
             account, http_client, "POST", f"{account.target_url}/api/chat/completions",
-            content=payload, extra_headers={"Content-Type": "application/json"}, timeout=30.0,
+            content=payload,
+            extra_headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+            stream=True, timeout=30.0,
         )
     except AuthError as e:
         return JSONResponse({"ok": False, "model": model, "error": f"登录/Token 失败: {e}"})
@@ -254,13 +258,37 @@ async def test_chat(
         return JSONResponse({"ok": False, "model": model, "error": f"请求失败: {e}"})
 
     if resp.status_code != 200:
-        return JSONResponse({"ok": False, "model": model, "status": resp.status_code, "error": resp.text[:500]})
+        err = (await resp.aread()).decode("utf-8", "ignore")
+        await resp.aclose()
+        return JSONResponse({"ok": False, "model": model, "status": resp.status_code, "error": err[:500]})
 
+    reply, stream_err = "", None
     try:
-        reply = resp.json()["choices"][0]["message"]["content"]
-    except Exception:
-        reply = resp.text[:500]
+        async for line in resp.aiter_lines():
+            line = line.strip()
+            if not line.startswith("data:"):
+                continue
+            chunk = line[5:].strip()
+            if chunk == "[DONE]":
+                break
+            try:
+                obj = json.loads(chunk)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and obj.get("error"):
+                stream_err = json.dumps(obj["error"], ensure_ascii=False)
+                break
+            try:
+                delta = obj["choices"][0]["delta"].get("content")
+                if delta:
+                    reply += delta
+            except (KeyError, IndexError, TypeError):
+                pass
+    finally:
+        await resp.aclose()
 
+    if stream_err:
+        return JSONResponse({"ok": False, "model": model, "error": stream_err[:500]})
     return JSONResponse({"ok": True, "model": model, "reply": (reply or "(空回复)")[:1000]})
 
 
