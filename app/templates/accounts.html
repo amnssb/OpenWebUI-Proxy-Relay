@@ -108,6 +108,7 @@
                     <div id="models-content-{{ a.id }}" style="padding:12px">
                         <span class="text-muted">加载中...</span>
                     </div>
+                    <div id="test-result-{{ a.id }}" style="padding:0 12px 12px;display:none"></div>
                 </td>
             </tr>
             <tr id="edit-{{ a.id }}" class="hidden">
@@ -189,13 +190,40 @@ async function fetchModels(accountId) {
             const displayName = m.name;
             const fullId = m.id;
             const hasPrefix = data.prefix && fullId !== displayName;
-            html += '<span class="badge ' + (hasPrefix ? 'badge-orange' : 'badge-blue') + '" title="实际ID: ' + fullId + '" style="cursor:help">' + displayName + '</span>';
+            html += '<span class="badge ' + (hasPrefix ? 'badge-orange' : 'badge-blue') + '" data-mid="' + escapeHtml(fullId)
+                + '" onclick="testModel(' + accountId + ', this)" title="点击发 hi 测试 | 实际ID: ' + escapeHtml(fullId)
+                + '" style="cursor:pointer">' + escapeHtml(displayName) + '</span>';
         }
         html += '</div>';
-        html += '<div class="form-hint" style="margin-top:8px">共 ' + data.models.length + ' 个模型，' + (data.prefix ? '前缀: ' + data.prefix : '无前缀') + '。悬停查看实际 ID</div>';
+        html += '<div class="form-hint" style="margin-top:8px">共 ' + data.models.length + ' 个模型，' + (data.prefix ? '前缀: ' + data.prefix : '无前缀') + '。👉 点击任意模型，给它发个 “hi” 测试是否可用</div>';
         content.innerHTML = html;
     } catch (e) {
         content.innerHTML = '<span class="text-muted">请求失败: ' + e.message + '</span>';
+    }
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function testModel(accountId, el) {
+    const mid = el.getAttribute('data-mid');
+    const box = document.getElementById('test-result-' + accountId);
+    box.style.display = 'block';
+    box.innerHTML = '<span class="text-muted">正在给 <strong>' + escapeHtml(mid) + '</strong> 发送 “hi” …</span>';
+    try {
+        const resp = await fetch('/admin/accounts/' + accountId + '/test?model=' + encodeURIComponent(mid));
+        const data = await resp.json();
+        if (data.ok) {
+            box.innerHTML = '<span class="badge badge-green">✓ ' + escapeHtml(data.model) + '</span>'
+                + '<div style="margin-top:6px"><span class="text-muted">回复：</span>' + escapeHtml(data.reply) + '</div>';
+        } else {
+            const err = data.error || ('HTTP ' + (data.status || '?'));
+            box.innerHTML = '<span class="badge badge-red">✗ ' + escapeHtml(data.model || mid) + '</span>'
+                + '<div style="margin-top:6px"><span class="text-danger">' + escapeHtml(err) + '</span></div>';
+        }
+    } catch (e) {
+        box.innerHTML = '<span class="text-danger">测试失败: ' + escapeHtml(e.message) + '</span>';
     }
 }
 </script>

@@ -1,3 +1,4 @@
+import json
 import logging
 import secrets
 from datetime import datetime, timezone
@@ -12,7 +13,7 @@ from app.auth import hash_password, require_admin, validate_csrf
 from app.crypto import encrypt
 from app.database import get_db
 from app.models import Account, ApiKey, User
-from app.owui_auth import authed_request
+from app.owui_auth import AuthError, authed_request
 from app.schemas import AccountForm, AccountUpdateForm, ApiKeyForm, UserForm, UserUpdateForm
 
 log = logging.getLogger(__name__)
@@ -206,6 +207,62 @@ async def get_models(
         models.append({"id": mid, "name": display_name})
 
     return JSONResponse({"models": models, "prefix": prefix, "error": None})
+
+
+@router.get("/accounts/{account_id}/test")
+async def test_chat(
+    account_id: int,
+    request: Request,
+    model: str = "",
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a real `hi` to a model on the target and return its reply, so the
+    admin can verify the channel actually works end-to-end (not just /api/models)."""
+    result = await db.execute(select(Account).where(Account.id == account_id))
+    account = result.scalar_one_or_none()
+    if not account:
+        return JSONResponse({"ok": False, "error": "账号不存在"})
+
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    model = model.strip()
+
+    # No model given: pick the first one the target exposes.
+    if not model:
+        try:
+            r = await authed_request(account, http_client, "GET", f"{account.target_url}/api/models", timeout=10.0)
+            model = (r.json().get("data") or [{}])[0].get("id", "")
+        except Exception:
+            model = ""
+    if not model:
+        return JSONResponse({"ok": False, "error": "没有可用模型可测试"})
+
+    payload = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+    }).encode("utf-8")
+
+    try:
+        resp = await authed_request(
+            account, http_client, "POST", f"{account.target_url}/api/chat/completions",
+            content=payload, extra_headers={"Content-Type": "application/json"}, timeout=30.0,
+        )
+    except AuthError as e:
+        return JSONResponse({"ok": False, "model": model, "error": f"登录/Token 失败: {e}"})
+    except Exception as e:
+        return JSONResponse({"ok": False, "model": model, "error": f"请求失败: {e}"})
+
+    if resp.status_code != 200:
+        return JSONResponse({"ok": False, "model": model, "status": resp.status_code, "error": resp.text[:500]})
+
+    try:
+        reply = resp.json()["choices"][0]["message"]["content"]
+    except Exception:
+        reply = resp.text[:500]
+
+    return JSONResponse({"ok": True, "model": model, "reply": (reply or "(空回复)")[:1000]})
+
 
 @router.post("/users")
 async def create_user(
