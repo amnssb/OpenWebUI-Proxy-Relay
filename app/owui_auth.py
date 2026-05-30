@@ -149,7 +149,14 @@ async def authed_request(
 
     async def _send() -> httpx.Response:
         token = await get_session_token(account, http_client)
-        headers = {"Authorization": f"Bearer {token}", "User-Agent": BROWSER_UA}
+        # Send the session token both as a Bearer header and as the `token`
+        # cookie — OpenWebUI's web UI authenticates via the cookie, and targets
+        # behind an SSO/WAF gateway may require it.
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Cookie": f"token={token}",
+            "User-Agent": BROWSER_UA,
+        }
         if extra_headers:
             headers.update(extra_headers)
         req = http_client.build_request(method, url, headers=headers, **kwargs)
