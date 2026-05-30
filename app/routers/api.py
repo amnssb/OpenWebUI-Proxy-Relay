@@ -144,18 +144,20 @@ async def proxy_models(
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="目标服务器响应超时")
 
-    # Strip prefix from model IDs so the client sees original names.
-    if account.model_prefix and resp.status_code == 200:
-        try:
-            data = resp.json()
-            for m in data.get("data", []):
-                m["id"] = _strip_model_prefix(m["id"], account.model_prefix)
-            return Response(
-                content=json.dumps(data).encode("utf-8"),
-                status_code=resp.status_code,
-                media_type="application/json",
-            )
-        except (json.JSONDecodeError, KeyError, TypeError):
-            pass
+    if resp.status_code != 200:
+        return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 
-    return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+    # Normalize OpenWebUI's /api/models into a strict OpenAI /v1/models response
+    # (`{"object":"list","data":[{"id","object","created","owned_by"}]}`) and strip
+    # the account prefix so third-party clients see clean, selectable model ids.
+    try:
+        data = resp.json()
+        models = []
+        for m in data.get("data", []):
+            mid = _strip_model_prefix(m.get("id", ""), account.model_prefix)
+            if mid:
+                models.append({"id": mid, "object": "model", "created": 0, "owned_by": "openwebui"})
+        payload = {"object": "list", "data": models}
+        return Response(content=json.dumps(payload).encode("utf-8"), media_type="application/json")
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")

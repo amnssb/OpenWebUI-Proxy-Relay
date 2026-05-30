@@ -68,7 +68,11 @@ async def update_account(
     if not account:
         raise HTTPException(status_code=404, detail="账号不存在")
 
-    data = AccountUpdateForm(**{k: v for k, v in dict(form).items() if v is not None and v != ""})
+    form_dict = dict(form)
+    # Blank fields mean "leave unchanged" for credentials (password/token), so
+    # they're filtered out below. model_prefix is the exception: an empty value
+    # is a real value meaning "no prefix", so it is applied directly from the form.
+    data = AccountUpdateForm(**{k: v for k, v in form_dict.items() if v is not None and v != ""})
     if data.name is not None:
         account.name = data.name
     if data.target_url is not None:
@@ -81,8 +85,8 @@ async def update_account(
         account.password = encrypt(data.password)
     if data.session_token is not None:
         account.session_token = encrypt(data.session_token)
-    if data.model_prefix is not None:
-        account.model_prefix = data.model_prefix
+    if "model_prefix" in form_dict:
+        account.model_prefix = (form_dict.get("model_prefix") or "").strip()
 
     await db.commit()
     return RedirectResponse("/admin/accounts", status_code=303)
